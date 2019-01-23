@@ -17,6 +17,7 @@
     dbport: "{{ mysql_dynamic_inventory_agent_dbport }}"
     dbuser: "{{ mysql_dynamic_inventory_agent_dbuser }}"
     dbname: "{{ mysql_dynamic_inventory_agent_dbname }}"
+    state: present
   register: agent
 
 - debug: var=agent
