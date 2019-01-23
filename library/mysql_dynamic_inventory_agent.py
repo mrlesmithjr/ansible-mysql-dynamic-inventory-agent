@@ -26,6 +26,7 @@ def run_module():
         dbpass=dict(type='str', required=True, no_log=True),
         dbport=dict(type='str', required=False, default='3306'),
         dbuser=dict(type='str', required=True),
+        guest_os=dict(type='str', required=False),
         state=dict(type='str', required=False, choices=[
             'absent', 'present'], default='present')
     )
@@ -119,6 +120,7 @@ def register(module, result, connection):
                    'ansible_host'], module.params['ansible_hostname']))
         cursor.execute(sql)
         result['changed'] = True
+    # Add host to proper groups discovered from Ansible group_names fact
     for group in module.params['ansible_groups']:
         sql = "SELECT id FROM groups WHERE name='{0}'".format(group)
         cursor.execute(sql)
@@ -144,6 +146,45 @@ def register(module, result, connection):
                        module.params['ansible_hostname'], group))
             cursor.execute(sql)
             result['changed'] = True
+    # Remove host from any groups not defined in Ansible group_names fact
+    for group in host_groups:
+        if group != module.params['guest_os']:
+            if group not in module.params['ansible_groups']:
+                sql = ("DELETE FROM hostgroups "
+                       "WHERE "
+                       "hostid=(SELECT id FROM hosts WHERE name='{0}') "
+                       "AND "
+                       "groupid=(SELECT id FROM groups "
+                       "WHERE name='{1}')".format(module.params[
+                           'ansible_hostname'], group))
+                cursor.execute(sql)
+                result['changed'] = True
+    # Ensure group exists for ansible_os_family
+    sql = "SELECT id FROM groups WHERE name='{0}'".format(
+        module.params['guest_os'])
+    cursor.execute(sql)
+    os_group_lookup = cursor.fetchone()
+    if os_group_lookup is None:
+        sql = "INSERT INTO groups (name) VALUES ('{0}')".format(
+            module.params['guest_os'])
+        cursor.execute(sql)
+        result['changed'] = True
+    # # Ensure host is in ansible_os_family group
+    sql = ("SELECT id FROM hostgroups "
+           "WHERE hostid=(SELECT id FROM hosts WHERE name='{0}') "
+           "AND "
+           "groupid=(SELECT id FROM groups WHERE name='{1}')".format(
+               module.params['ansible_hostname'], module.params['guest_os']))
+    cursor.execute(sql)
+    os_group_host_lookup = cursor.fetchone()
+    if os_group_host_lookup is None:
+        sql = ("INSERT INTO hostgroups(hostid, groupid) "
+               "VALUES((SELECT id FROM hosts WHERE name='{0}'), "
+               "(SELECT id FROM groups WHERE name='{1}'))".format(
+                   module.params['ansible_hostname'],
+                   module.params['guest_os']))
+        cursor.execute(sql)
+        result['changed'] = True
     connection.commit()
     cursor.close()
 
