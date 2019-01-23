@@ -92,6 +92,14 @@ def run_module():
 def register(module, result, connection):
     """Registers host in inventory."""
     cursor = connection.cursor()
+    register_host(module, result, cursor)
+    register_hostvars(module, result, cursor)
+    register_groups(module, result, cursor)
+    connection.commit()
+    cursor.close()
+
+
+def register_host(module, result, cursor):
     sql = "SELECT id FROM hosts WHERE name='{0}'".format(
         module.params['ansible_hostname'])
     cursor.execute(sql)
@@ -101,26 +109,36 @@ def register(module, result, connection):
             module.params['ansible_hostname'])
         cursor.execute(sql)
         result['changed'] = True
-    sql = ("SELECT value FROM hostvars "
-           "WHERE name='ansible_host' "
-           "AND "
-           "hostid=(SELECT id FROM hosts WHERE name='{0}')".format(
-               module.params['ansible_hostname']))
-    cursor.execute(sql)
-    ansible_hostname_check = cursor.fetchone()
-    update_ansible_hostname = False
-    if ansible_hostname_check is None:
-        update_ansible_hostname = True
-    elif ansible_hostname_check[0] != module.params['ansible_host']:
-        update_ansible_hostname = True
-    if update_ansible_hostname:
-        sql = ("REPLACE INTO hostvars(name, value, hostid) "
-               "VALUES('ansible_host', '{0}', "
-               "(SELECT id FROM hosts WHERE name='{1}'))".format(module.params[
-                   'ansible_host'], module.params['ansible_hostname']))
+
+
+def register_hostvars(module, result, cursor):
+    default_hostvars = {
+        "ansible_host": module.params['ansible_host'],
+        "guest_os": module.params['guest_os']
+    }
+    for key, value in default_hostvars.items():
+        sql = ("SELECT value from hostvars "
+               "WHERE name='{0}' "
+               "AND "
+               "hostid=(SELECT id FROM hosts WHERE name='{1}')".format(
+                   key, module.params['ansible_hostname']))
         cursor.execute(sql)
-        result['changed'] = True
-    # Add host to proper groups discovered from Ansible group_names fact
+        hostvar_check = cursor.fetchone()[0]
+        update_hostvar = False
+        if hostvar_check is None:
+            update_hostvar = True
+        elif hostvar_check != value:
+            update_hostvar = True
+        if update_hostvar:
+            sql = ("REPLACE INTO hostvars(name, value, hostid) "
+                   "VALUES('{0}', '{1}', "
+                   "(SELECT id FROM hosts WHERE name='{2}'))".format(
+                       key, value, module.params['ansible_hostname']))
+            cursor.execute(sql)
+            result['changed'] = True
+
+
+def register_groups(module, result, cursor):
     for group in module.params['ansible_groups']:
         sql = "SELECT id FROM groups WHERE name='{0}'".format(group)
         cursor.execute(sql)
@@ -185,8 +203,6 @@ def register(module, result, connection):
                    module.params['guest_os']))
         cursor.execute(sql)
         result['changed'] = True
-    connection.commit()
-    cursor.close()
 
 
 def unregister(module, result, connection):
