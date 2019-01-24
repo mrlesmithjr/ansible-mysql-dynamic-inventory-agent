@@ -86,6 +86,7 @@ def run_module():
 
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
+    result['rc'] = 0
     module.exit_json(**result)
 
 
@@ -158,7 +159,7 @@ def register_groups(module, result, cursor):
         for row in cursor.fetchall():
             host_groups.append(row[0])
         if group not in host_groups:
-            sql = ("INSERT INTO hostgroups(hostid, groupid) "
+            sql = ("INSERT IGNORE INTO hostgroups(hostid, groupid) "
                    "VALUES((SELECT id FROM hosts WHERE name='{0}'), "
                    "(SELECT id FROM groups WHERE name='{1}'))".format(
                        module.params['ansible_hostname'], group))
@@ -183,11 +184,11 @@ def register_groups(module, result, cursor):
     cursor.execute(sql)
     os_group_lookup = cursor.fetchone()
     if os_group_lookup is None:
-        sql = "INSERT INTO groups (name) VALUES ('{0}')".format(
+        sql = "INSERT IGNORE INTO groups (name) VALUES ('{0}')".format(
             module.params['guest_os'])
         cursor.execute(sql)
         result['changed'] = True
-    # # Ensure host is in ansible_os_family group
+    # Ensure host is in ansible_os_family group
     sql = ("SELECT id FROM hostgroups "
            "WHERE hostid=(SELECT id FROM hosts WHERE name='{0}') "
            "AND "
@@ -196,7 +197,7 @@ def register_groups(module, result, cursor):
     cursor.execute(sql)
     os_group_host_lookup = cursor.fetchone()
     if os_group_host_lookup is None:
-        sql = ("INSERT INTO hostgroups(hostid, groupid) "
+        sql = ("INSERT IGNORE INTO hostgroups(hostid, groupid) "
                "VALUES((SELECT id FROM hosts WHERE name='{0}'), "
                "(SELECT id FROM groups WHERE name='{1}'))".format(
                    module.params['ansible_hostname'],

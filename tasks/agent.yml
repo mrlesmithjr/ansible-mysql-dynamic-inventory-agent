@@ -16,5 +16,8 @@
     dbname: "{{ mysql_dynamic_inventory_agent_dbname }}"
     state: present
   register: agent
+  retries: 10
+  delay: 1
+  until: agent.rc == 0
 
 - debug: var=agent
