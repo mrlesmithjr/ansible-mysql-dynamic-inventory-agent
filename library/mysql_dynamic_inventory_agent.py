@@ -19,8 +19,8 @@ def run_module():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
         ansible_groups=dict(type='list', required=False),
-        ansible_host=dict(type='str', required=True),
-        ansible_hostname=dict(type='str', required=True),
+        ansible_host=dict(type='str', required=False),
+        ansible_hostname=dict(type='str', required=False),
         dbhost=dict(type='str', required=True),
         dbname=dict(type='str', required=False, default='ansible'),
         dbpass=dict(type='str', required=True, no_log=True),
@@ -117,17 +117,17 @@ def register_hostvars(module, result, cursor):
         "guest_os": module.params['guest_os']
     }
     for key, value in default_hostvars.items():
-        sql = ("SELECT value from hostvars "
+        update_hostvar = False
+        sql = ("SELECT value FROM hostvars "
                "WHERE name='{0}' "
                "AND "
                "hostid=(SELECT id FROM hosts WHERE name='{1}')".format(
                    key, module.params['ansible_hostname']))
         cursor.execute(sql)
-        hostvar_check = cursor.fetchone()[0]
-        update_hostvar = False
+        hostvar_check = cursor.fetchone()
         if hostvar_check is None:
             update_hostvar = True
-        elif hostvar_check != value:
+        elif hostvar_check[0] != value:
             update_hostvar = True
         if update_hostvar:
             sql = ("REPLACE INTO hostvars(name, value, hostid) "

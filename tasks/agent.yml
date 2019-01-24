@@ -9,15 +9,11 @@
 
 - name: agent | Running Agent
   mysql_dynamic_inventory_agent:
-    ansible_groups: "{{ group_names }}"
-    ansible_host: "{{ ansible_host }}"
-    ansible_hostname: "{{ inventory_hostname }}"
     dbhost: "{{ mysql_dynamic_inventory_agent_dbhost }}"
     dbpass: "{{ mysql_dynamic_inventory_agent_dbpass }}"
     dbport: "{{ mysql_dynamic_inventory_agent_dbport }}"
     dbuser: "{{ mysql_dynamic_inventory_agent_dbuser }}"
     dbname: "{{ mysql_dynamic_inventory_agent_dbname }}"
-    guest_os: "{{ ansible_os_family }}"
     state: present
   register: agent
 
