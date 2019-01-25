@@ -8,6 +8,7 @@ import mysql.connector
 # from mysql.connector import Error
 # import socket
 
+# TODO: Should groupvars functionality be added?
 ANSIBLE_METADATA = {
     'metadata_version': '1.1',
     'status': ['preview'],
@@ -15,12 +16,15 @@ ANSIBLE_METADATA = {
 }
 
 
-def run_module():
+def main():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
+        ansible_connection=dict(type='str', required=False),
         ansible_groups=dict(type='list', required=False),
         ansible_host=dict(type='str', required=False),
         ansible_hostname=dict(type='str', required=False),
+        ansible_port=dict(type='str', required=False),
+        ansible_user=dict(type='str', required=False),
         dbhost=dict(type='str', required=True),
         dbname=dict(type='str', required=False, default='ansible'),
         dbpass=dict(type='str', required=True, no_log=True),
@@ -114,7 +118,10 @@ def register_host(module, result, cursor):
 
 def register_hostvars(module, result, cursor):
     default_hostvars = {
+        "ansible_connection": module.params['ansible_connection'],
         "ansible_host": module.params['ansible_host'],
+        "ansible_port": module.params['ansible_port'],
+        "ansible_user": module.params['ansible_user'],
         "guest_os": module.params['guest_os']
     }
     for key, value in default_hostvars.items():
@@ -220,10 +227,6 @@ def unregister(module, result, connection):
         result['changed'] = True
     connection.commit()
     cursor.close()
-
-
-def main():
-    run_module()
 
 
 if __name__ == '__main__':
